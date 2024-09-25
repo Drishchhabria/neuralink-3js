@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive NeuroBridge</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    <style>
+        body { margin: 0; overflow-x: hidden; font-family: Arial, sans-serif; background-color: #000; color: #fff; }
+        #info { position: fixed; top: 50%; left: 5%; transform: translateY(-50%); width: 30%; }
+        #info h1 { font-size: 5em; margin: 0; }
+        #info p { font-size: 1.2em; margin-top: 20px; }
+        #scene-container { position: fixed; top: 0; left: 35%; width: 45%; height: 100%; }
+        .spacer { height: 100vh; }
+        #scroll-prompt { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); }
+        #component-info { 
+            position: fixed; 
+            top: 0; 
+            right: 0; 
+            width: 20%; 
+            height: 100%; 
+            background-color: rgba(0,0,0,0.7); 
+            padding: 20px; 
+            box-sizing: border-box;
+            overflow-y: auto;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-out;
+        }
+        #component-info.active { transform: translateX(0); }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>Neuralink</h1>
+        <p>Our cutting-edge brain-computer interface is fully implantable, aesthetically seamless, and engineered to provide intuitive control over digital devices from anywhere.</p>
+    </div>
+    <div id="scene-container"></div>
+    <div id="scroll-prompt">Scroll to explore, click on components for details</div>
+    <div id="component-info"></div>
+    <div class="spacer"></div>
+    <div class="spacer"></div>
+    <div class="spacer"></div>
+    <div class="spacer"></div>
+    <div class="spacer"></div>
+    <div class="spacer"></div>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, (window.innerWidth * 0.45) / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth * 0.45, window.innerHeight);
+        document.getElementById('scene-container').appendChild(renderer.domElement);
+
+        const components = [
+            { geometry: new THREE.SphereGeometry(0.5, 32, 32), color: 0xf0f0f0, y: 1.2, name: "Neural Interface", info: "Advanced neural interface with thousands of microscopic electrodes for precise brain signal detection." },
+            { geometry: new THREE.CylinderGeometry(0.4, 0.4, 0.2, 32), color: 0x303030, y: 0.8, name: "Signal Processor", info: "High-speed processor that interprets neural signals in real-time." },
+            { geometry: new THREE.RingGeometry(0.3, 0.5, 32), color: 0xa0a0a0, y: 0.4, name: "Wireless Transmitter", info: "Low-power, high-bandwidth transmitter for seamless data exchange with external devices." },
+            { geometry: new THREE.BoxGeometry(0.8, 0.1, 0.8), color: 0x505050, y: 0, name: "Power Management", info: "Efficient power management system for long-lasting operation." },
+            { geometry: new THREE.CircleGeometry(0.4, 32), color: 0xd0d0d0, y: -0.4, name: "Biocompatible Casing", info: "Durable, biocompatible casing designed for long-term implantation." },
+            { geometry: new THREE.TorusGeometry(0.3, 0.1, 16, 100), color: 0x808080, y: -0.8, name: "Cooling System", info: "Advanced cooling mechanism to maintain optimal operating temperature." }
+        ];
+
+        const implant = new THREE.Group();
+        const meshes = [];
+        components.forEach(comp => {
+            const material = new THREE.MeshPhongMaterial({ color: comp.color });
+            const mesh = new THREE.Mesh(comp.geometry, material);
+            mesh.position.y = comp.y;
+            mesh.name = comp.name;
+            mesh.userData.info = comp.info;
+            implant.add(mesh);
+            meshes.push(mesh);
+        });
+        scene.add(implant);
+
+        const light = new THREE.PointLight(0xffffff, 1, 100);
+        light.position.set(5, 5, 5);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x404040));
+
+        camera.position.z = 5;
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            const scrollFraction = scrollY / maxScroll;
+            
+            implant.rotation.y = scrollFraction * Math.PI * 2;
+            camera.position.z = 5 - scrollFraction * 3;
+            
+            const focusIndex = Math.floor(scrollFraction * components.length);
+            implant.position.y = -components[focusIndex].y;
+            
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = (window.innerWidth * 0.45) / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth * 0.45, window.innerHeight);
+        });
+
+        function onMouseMove(event) {
+            mouse.x = ((event.clientX - window.innerWidth * 0.35) / (window.innerWidth * 0.45)) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onClick(event) {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(meshes);
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                showComponentInfo(object);
+                animateComponent(object);
+            }
+        }
+
+        function showComponentInfo(object) {
+            const infoElement = document.getElementById('component-info');
+            infoElement.innerHTML = `<h2>${object.name}</h2><p>${object.userData.info}</p>`;
+            infoElement.classList.add('active');
+        }
+
+        function animateComponent(object) {
+            gsap.to(object.scale, {duration: 0.3, x: 1.2, y: 1.2, z: 1.2, yoyo: true, repeat: 1});
+        }
+
+        window.addEventListener('mousemove', onMouseMove, false);
+        window.addEventListener('click', onClick, false);
+    </script>
+</body>
+</html>
